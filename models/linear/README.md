@@ -1,0 +1,17 @@
+## Linear model
+
+To train the model simply run the python file.
+    
+    $ python linear.py
+
+
+It will save the model on a `./serve/` folder.
+
+You can than run predictions using `saved_model_cli`
+
+    $ saved_model_cli run --dir ./serve/ --tag_set serve --signature_def serving_default --input_exprs='X=np.float32(4)'
+
+
+You can also use google gcloud tools to run the prediction.
+
+    $ gcloud ml-engine local predict --model-dir=./serve/ --json-instances instances.json

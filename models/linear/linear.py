@@ -20,29 +20,19 @@ class LinearModel(object):
         self.Y = tf.placeholder(tf.float32, name='Y')
 
         # Variables to optimize
-        M_init = np.random.rand()
-        B_init = np.random.rand()
+        self.M = tf.Variable(np.random.rand(), name='M')
+        self.B = tf.Variable(np.random.rand(), name='B')
 
-        self.M = tf.Variable(M_init, name='M')
-        self.B = tf.Variable(B_init, name='B')
+        # model:  Y = M*X + B
+        self.model = tf.add(tf.multiply(self.M, self.X), self.B)
 
-        print("start:\t Y = %s * X + %s" % (M_init, B_init))
-
-        # build saving
+        # Model save and serving setup.
         self.builder = tf.saved_model.builder.SavedModelBuilder(export_path)
-        self.tensor_info_X = tf.saved_model.utils.build_tensor_info(self.X)
 
-        self.model = self.get_model()
+        self.tensor_info_X = tf.saved_model.utils.build_tensor_info(self.X)
         self.tensor_info_model = tf.saved_model.utils.build_tensor_info(self.model)
 
         self.signature_def_map = {
-            'linear': (
-                tf.saved_model.signature_def_utils.build_signature_def(
-                    inputs={'X': self.tensor_info_X},
-                    outputs={'Y': self.tensor_info_model},
-                    method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
-                )
-            ),
             'serving_default': (
                 tf.saved_model.signature_def_utils.build_signature_def(
                     inputs={'X': self.tensor_info_X},
@@ -52,24 +42,19 @@ class LinearModel(object):
             ),
         }
 
-    def get_model(self):
-        # Linear Model:  Y = M*X + B
-        Y = tf.add(tf.multiply(self.M, self.X), self.B)
-        return Y
-
     def get_training_operation(self):
-        Y_predict = self.get_model()
 
-        # mean squared error
-        error = tf.reduce_sum(tf.pow(Y_predict - self.Y, 2) / len(2 * X_train))
+        # Mean squared error
+        # Compare the output of the model with training 'Y'
+        error = tf.reduce_sum(tf.pow(self.model - self.Y, 2) / len(2 * X_train))
 
+        # Minimize the Mean Squared Error with an Adam Optimizer
         training = tf.train.AdamOptimizer(learning_rate).minimize(error)
         return training
 
     def get_train_data_batches(self):
-        # Make sure data can be feed in batches in case a
-        # too big dataset.
-        for i in range(50):
+        # Make sure data can be feed in batches in case a too big dataset.
+        for i in range(100):
             yield {self.X: X_train, self.Y: Y_train}
 
     def train(self):
@@ -80,17 +65,19 @@ class LinearModel(object):
         with tf.Session() as session:
             session.run(init)
 
+            print("start:\t Y = %s*X + %s" % (session.run(self.M), session.run(self.B)))
+
             for epoch in range(100):
                 for train_batch in self.get_train_data_batches():
                     session.run(training, feed_dict=train_batch)
 
             print("end:\tY = %s*X + %s" % (session.run(self.M), session.run(self.B)))
 
+            # Save the model
             self.builder.add_meta_graph_and_variables(
                 session,
                 [tf.saved_model.tag_constants.SERVING],
                 signature_def_map=self.signature_def_map,
-                # assets_collection=None,
             )
 
             self.builder.save()
