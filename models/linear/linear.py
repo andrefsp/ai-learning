@@ -14,7 +14,7 @@ export_path = './serve/'
 
 class LinearModel(object):
 
-    def __init__(self):
+    def init_model(self):
         # Inputs
         self.X = tf.placeholder(tf.float32, name='X')
         self.Y = tf.placeholder(tf.float32, name='Y')
@@ -24,26 +24,22 @@ class LinearModel(object):
         self.B = tf.Variable(np.random.rand(), name='B')
 
         # model:  Y = M*X + B
-        self.model = tf.add(tf.multiply(self.M, self.X), self.B)
+        self.model = tf.add(tf.multiply(self.M, self.X), self.B, name='model')
 
-        # Model save and serving setup.
-        self.builder = tf.saved_model.builder.SavedModelBuilder(export_path)
-
+        # Model save and serving signature map
         self.tensor_info_X = tf.saved_model.utils.build_tensor_info(self.X)
         self.tensor_info_model = tf.saved_model.utils.build_tensor_info(self.model)
-
         self.signature_def_map = {
             'serving_default': (
                 tf.saved_model.signature_def_utils.build_signature_def(
                     inputs={'X': self.tensor_info_X},
-                    outputs={'Y': self.tensor_info_model},
+                    outputs={'model': self.tensor_info_model},
                     method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME
                 )
             ),
         }
 
     def get_training_operation(self):
-
         # Mean squared error
         # Compare the output of the model with training 'Y'
         error = tf.reduce_sum(tf.pow(self.model - self.Y, 2) / len(2 * X_train))
@@ -58,6 +54,12 @@ class LinearModel(object):
             yield {self.X: X_train, self.Y: Y_train}
 
     def train(self):
+        # initiate variables for training
+        self.init_model()
+
+        # save builder
+        builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+
         training = self.get_training_operation()
 
         init = tf.global_variables_initializer()
@@ -74,13 +76,35 @@ class LinearModel(object):
             print("end:\tY = %s*X + %s" % (session.run(self.M), session.run(self.B)))
 
             # Save the model
-            self.builder.add_meta_graph_and_variables(
+            builder.add_meta_graph_and_variables(
                 session,
                 [tf.saved_model.tag_constants.SERVING],
                 signature_def_map=self.signature_def_map,
             )
 
-            self.builder.save()
+            builder.save()
+
+    def init_model_from_save(self, session):
+        # Load saved model
+        tf.saved_model.loader.load(
+            session, [
+                tf.saved_model.tag_constants.SERVING
+            ],
+            export_path
+        )
+
+        graph = tf.get_default_graph()
+
+        # Inputs
+        self.Y = graph.get_tensor_by_name("Y:0")
+        self.X = graph.get_tensor_by_name("X:0")
+
+        # variables to optimise
+        self.M = graph.get_tensor_by_name("M:0")
+        self.B = graph.get_tensor_by_name("B:0")
+
+        # model
+        self.model = graph.get_tensor_by_name("model:0")
 
     def predict(self, X):
 
@@ -90,13 +114,8 @@ class LinearModel(object):
             # Initialize session
             session.run(init)
 
-            # Load saved model
-            tf.saved_model.loader.load(
-                session, [
-                    tf.saved_model.tag_constants.SERVING
-                ],
-                export_path
-            )
+            # initiate the model for prediction
+            self.init_model_from_save(session)
 
             # predict
             return session.run(self.model, feed_dict={self.X: X})
