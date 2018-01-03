@@ -5,13 +5,13 @@ import numpy as np
 learning_rate = 0.001
 
 
-default_job_dir = './serve/'
+default_export_path = './export/'
 
 
 class LinearModel(object):
 
-    def __init__(self, job_dir=None):
-        self.job_dir = job_dir or default_job_dir
+    def __init__(self, export_path=None):
+        self.export_path = export_path or default_export_path
 
     def init_model(self):
         # Inputs
@@ -61,7 +61,7 @@ class LinearModel(object):
         self.init_model()
 
         # save builder
-        builder = tf.saved_model.builder.SavedModelBuilder(self.job_dir)
+        builder = tf.saved_model.builder.SavedModelBuilder(self.export_path)
 
         # get training operation
         training = self.get_training_operation()
@@ -97,7 +97,7 @@ class LinearModel(object):
             session, [
                 tf.saved_model.tag_constants.SERVING
             ],
-            self.job_dir
+            self.export_path
         )
 
         graph = tf.get_default_graph()
