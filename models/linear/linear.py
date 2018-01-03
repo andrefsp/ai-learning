@@ -1,11 +1,8 @@
 import tensorflow as tf
 import numpy as np
 
+
 learning_rate = 0.001
-
-X_train = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-
-Y_train = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
 
 default_export_path = './serve/'
@@ -44,16 +41,12 @@ class LinearModel(object):
     def get_training_operation(self):
         # Mean squared error
         # Compare the output of the model with training 'Y'
-        error = tf.reduce_sum(tf.pow(self.model - self.Y, 2) / len(2 * X_train))
+        # Root Squared error  (RSE) ??
+        error = tf.reduce_sum(tf.pow(self.model - self.Y, 2))
 
         # Minimize the Mean Squared Error with an Adam Optimizer
         training = tf.train.AdamOptimizer(learning_rate).minimize(error)
         return training
-
-    def get_train_data_batches(self, session):
-        # Make sure data can be feed in batches in case a too big dataset.
-        for i in range(100):
-            yield {self.X: X_train, self.Y: Y_train}
 
     def train_from_file(self, train_file):
         # init file input
@@ -88,37 +81,6 @@ class LinearModel(object):
                 x_train, y_train = session.run([X, Y])
 
                 session.run(training, feed_dict={self.X: x_train, self.Y: y_train})
-
-            # Save the model
-            builder.add_meta_graph_and_variables(
-                session,
-                [tf.saved_model.tag_constants.SERVING],
-                signature_def_map=self.signature_def_map,
-            )
-
-            builder.save()
-
-    def train(self):
-        # initiate variables for training
-        self.init_model()
-
-        # save builder
-        builder = tf.saved_model.builder.SavedModelBuilder(self.export_path)
-
-        training = self.get_training_operation()
-
-        init = tf.global_variables_initializer()
-
-        with tf.Session() as session:
-            session.run(init)
-
-            print("start:\t Y = %s*X + %s" % (session.run(self.M), session.run(self.B)))
-            for epoch in range(100):
-                print("\t Epoch %s ::: \tY = %s*X + %s" % (epoch, session.run(self.M), session.run(self.B)))
-                for train_batch in self.get_train_data_batches(session):
-                    session.run(training, feed_dict=train_batch)
-
-            print("end:\tY = %s*X + %s" % (session.run(self.M), session.run(self.B)))
 
             # Save the model
             builder.add_meta_graph_and_variables(

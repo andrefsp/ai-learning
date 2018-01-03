@@ -2,7 +2,7 @@
 
 To train the model simply run the python file.
     
-    $ python linear.py
+    $ python train_task.py --train-file ./data/linear.train.csv  --export-path ./serve/
 
 
 It will save the model on a `./serve/` folder.
