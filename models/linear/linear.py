@@ -7,12 +7,14 @@ X_train = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
 Y_train = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 
-model_save_path = './saved/linear.cckp'
 
-export_path = './serve/'
+default_export_path = './serve/'
 
 
 class LinearModel(object):
+
+    def __init__(self, export_path=None):
+        self.export_path = export_path or default_export_path
 
     def init_model(self):
         # Inputs
@@ -48,17 +50,60 @@ class LinearModel(object):
         training = tf.train.AdamOptimizer(learning_rate).minimize(error)
         return training
 
-    def get_train_data_batches(self):
+    def get_train_data_batches(self, session):
         # Make sure data can be feed in batches in case a too big dataset.
         for i in range(100):
             yield {self.X: X_train, self.Y: Y_train}
+
+    def train_from_file(self, train_file):
+        # init file input
+        filename_queue = tf.train.string_input_producer([train_file, ], shuffle=True)
+        reader = tf.TextLineReader(skip_header_lines=1)
+        _, rows = reader.read(filename_queue)
+
+        lines = tf.decode_csv(rows, record_defaults=[[], []])
+        X, Y = tf.train.shuffle_batch(lines, 10, 20, 10)
+
+        # initiate variables for training
+        self.init_model()
+
+        # save builder
+        builder = tf.saved_model.builder.SavedModelBuilder(self.export_path)
+
+        # get training operation
+        training = self.get_training_operation()
+
+        init = tf.global_variables_initializer()
+
+        with tf.Session() as session:
+            # Start populating the filename queue.
+            coord = tf.train.Coordinator()
+            tf.train.start_queue_runners(coord=coord)
+
+            session.run(init)
+
+            print("start:\t Y = %s*X + %s" % (session.run(self.M), session.run(self.B)))
+            for epoch in range(10000):
+                print("\t Epoch %s ::: \tY = %s*X + %s" % (epoch, session.run(self.M), session.run(self.B)))
+                x_train, y_train = session.run([X, Y])
+
+                session.run(training, feed_dict={self.X: x_train, self.Y: y_train})
+
+            # Save the model
+            builder.add_meta_graph_and_variables(
+                session,
+                [tf.saved_model.tag_constants.SERVING],
+                signature_def_map=self.signature_def_map,
+            )
+
+            builder.save()
 
     def train(self):
         # initiate variables for training
         self.init_model()
 
         # save builder
-        builder = tf.saved_model.builder.SavedModelBuilder(export_path)
+        builder = tf.saved_model.builder.SavedModelBuilder(self.export_path)
 
         training = self.get_training_operation()
 
@@ -68,9 +113,9 @@ class LinearModel(object):
             session.run(init)
 
             print("start:\t Y = %s*X + %s" % (session.run(self.M), session.run(self.B)))
-
             for epoch in range(100):
-                for train_batch in self.get_train_data_batches():
+                print("\t Epoch %s ::: \tY = %s*X + %s" % (epoch, session.run(self.M), session.run(self.B)))
+                for train_batch in self.get_train_data_batches(session):
                     session.run(training, feed_dict=train_batch)
 
             print("end:\tY = %s*X + %s" % (session.run(self.M), session.run(self.B)))
@@ -90,7 +135,7 @@ class LinearModel(object):
             session, [
                 tf.saved_model.tag_constants.SERVING
             ],
-            export_path
+            self.export_path
         )
 
         graph = tf.get_default_graph()
@@ -121,9 +166,9 @@ class LinearModel(object):
             return session.run(self.model, feed_dict={self.X: X})
 
 
-linear_model = LinearModel()
+# linear_model = LinearModel()
 
-linear_model.train()
+# linear_model.train_from_file()
 
-for x in range(4, 10):
-    print("Prediction: M * %s + B = %s" % (x, linear_model.predict(x)))
+# for x in range(4, 10):
+#    print("Prediction: M * %s + B = %s" % (x, linear_model.predict(x)))
