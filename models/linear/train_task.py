@@ -7,7 +7,7 @@ from linear import LinearModel
 
 
 def run_experiment(hparams):
-    linear_model = LinearModel(hparams.export_path)
+    linear_model = LinearModel(hparams.job_dir)
     linear_model.train_from_file(hparams.train_file)
 
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
         required=True
     )
     parser.add_argument(
-        '--export-path',
+        '--job-dir',
         help='GCS or local paths to training data',
         default="./serve/",
         required=True

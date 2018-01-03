@@ -2,7 +2,7 @@
 
 To train the linear model using gcloud
 
-    $ gcloud ml-engine local train --module-name linear.train_task --package-path linear  -- --train-file linear/data/linear.train.csv --export-path ./linear/serve/
+    $ gcloud ml-engine local train --module-name linear.train_task --package-path linear  -- --train-file linear/data/linear.train.csv --job-dir ./linear/serve/
     
 
 It will save the model on a `./linear/serve/` folder.
