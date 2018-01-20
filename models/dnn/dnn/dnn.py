@@ -13,18 +13,20 @@ class DNN(object):
 
         # Input
         self.x = tf.placeholder(tf.float32, shape=(None, self.n_inputs), name="X")
-        self.y = tf.placeholder(tf.int64, shape=(None, self.n_outputs), name="Y")
+        self.y = tf.placeholder(tf.float32, shape=(None, self.n_outputs), name="Y")
 
         with tf.name_scope("dnn"):
             self.hidden1 = tf.layers.dense(self.x, self.n_hidden1, name="hidden1", activation=tf.nn.relu)
             self.hidden2 = tf.layers.dense(self.hidden1, self.n_hidden2, name="hidden2", activation=tf.nn.relu)
             self.logits = tf.layers.dense(self.hidden2, self.n_outputs, name="outputs")
 
-        # Evaluation
-        with tf.name_scope("eval"):
-            correct = tf.nn.in_top_k(self.logits, self.y, 1)
-            self.accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
+        # self.error = tf.reduce_mean(tf.metrics.mean_squared_error(self.y, self.logits))
+
+        self.error = tf.reduce_mean(tf.squared_difference(self.y, self.logits))
 
         # training
         with tf.name_scope("train"):
-            self.training = tf.train.GradientDescentOptimizer(self.learning_rate).maximize(self.accuracy)
+            # self.xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits)
+            # self.loss = tf.reduce_mean(self.xentropy, name="loss")
+            # self.training = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
+            self.training = tf.train.AdamOptimizer(self.learning_rate).minimize(self.error)

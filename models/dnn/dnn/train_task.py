@@ -13,9 +13,9 @@ from sklearn import preprocessing
 # export path to product the model files. (*.pb)
 
 
-def get_train_data(hparams):
+def get_train_data(filename):
 
-    dataframe = pd.read_csv(hparams.train_file)
+    dataframe = pd.read_csv(filename)
     labels = dataframe['label']
 
     del dataframe['label']
@@ -24,16 +24,37 @@ def get_train_data(hparams):
         preprocessing.normalize(dataframe)
     )
 
-
     one_n_labels = np.eye(len(labels.unique()))[labels]
 
     dataframe = dataframe.join(pd.DataFrame(one_n_labels), rsuffix='_label')
 
     for line in dataframe.as_matrix():
-        Y = [int(d) for d in line[-10:]]
-        X = line[:len(line) - 10]
-        # yield X, Y
-        print("%s :: %s" % (X, Y))
+        Y = [line[-10:], ]
+        X = [line[:len(line) - 10], ]
+        yield X, Y
+
+
+def get_eval_data(filename):
+    dataframe = pd.read_csv(filename)
+    labels = dataframe['label']
+
+    del dataframe['label']
+
+    dataframe = pd.DataFrame(
+        preprocessing.normalize(dataframe)
+    )
+
+    one_n_labels = np.eye(len(labels.unique()))[labels]
+
+    dataframe = dataframe.join(pd.DataFrame(one_n_labels), rsuffix='_label')
+
+    X = []
+    Y = []
+    for line in dataframe.as_matrix():
+        Y.append(line[-10:])
+        X.append(line[:len(line) - 10])
+
+    return X, Y
 
 
 def run_experiment(hparams):
@@ -41,23 +62,25 @@ def run_experiment(hparams):
     Google ML Engine entry point for training job.
     '''
 
-    get_train_data(hparams)
-    #model = DNN(784, 10)
-    #
-    #model.init_model()
-    #
-    #init = tf.global_variables_initializer()
-    #
-    #with tf.Session() as session:
-    #
-    #    session.run(init)
-    #
-    #    for epoch in range(0, hparams.epochs):
-    #
-    #        for X, Y in get_train_data(hparams):
-    #            session.run(model.training, feed_dict={model.x: X, model.y: Y})
-    #
-    #        print("Epoch (%s) :: Accuracy: (%s)" % (epoch, session.run(model.accuracy)))
+    model = DNN(784, 10)
+
+    init = tf.global_variables_initializer()
+
+    with tf.Session() as session:
+
+        session.run(init)
+
+        for epoch in range(0, hparams.epochs):
+
+            for X, Y in get_train_data(hparams.train_file):
+                session.run(
+                    model.training,
+                    feed_dict={model.x: X, model.y: Y},
+                )
+
+            X, Y = get_eval_data(hparams.eval_file)
+
+            print("Epoch(%s) Error: %s " % (epoch, session.run(model.error, feed_dict={model.x: X, model.y: Y})))
 
 
 if __name__ == '__main__':
@@ -66,9 +89,17 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train-file',
         help='GCS or local paths to training data',
-        default="data/linear.train.csv",
-        required=True
+        default="data/train.csv",
+        required=False
     )
+
+    parser.add_argument(
+        '--eval-file',
+        help='GCS or local paths to training data',
+        default="data/eval.csv",
+        required=False
+    )
+
     parser.add_argument(
         '--export-path',
         help='GCS or local paths to training data',
