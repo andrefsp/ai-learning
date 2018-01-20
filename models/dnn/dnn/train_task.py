@@ -1,9 +1,10 @@
+import numpy as np
+import pandas as pd
 import argparse
-import os
-
 import tensorflow as tf
 from tensorflow.contrib.training.python.training import hparam
-
+from dnn import DNN
+from sklearn import preprocessing
 
 # Google Cloud ML Engine requires run_experiment.
 # ``run_experiment`` is the entry point for ML engine jobs.
@@ -12,10 +13,51 @@ from tensorflow.contrib.training.python.training import hparam
 # export path to product the model files. (*.pb)
 
 
+def get_train_data(hparams):
+
+    dataframe = pd.read_csv(hparams.train_file)
+    labels = dataframe['label']
+
+    del dataframe['label']
+
+    dataframe = pd.DataFrame(
+        preprocessing.normalize(dataframe)
+    )
+
+
+    one_n_labels = np.eye(len(labels.unique()))[labels]
+
+    dataframe = dataframe.join(pd.DataFrame(one_n_labels), rsuffix='_label')
+
+    for line in dataframe.as_matrix():
+        Y = [int(d) for d in line[-10:]]
+        X = line[:len(line) - 10]
+        # yield X, Y
+        print("%s :: %s" % (X, Y))
+
+
 def run_experiment(hparams):
     '''
     Google ML Engine entry point for training job.
     '''
+
+    get_train_data(hparams)
+    #model = DNN(784, 10)
+    #
+    #model.init_model()
+    #
+    #init = tf.global_variables_initializer()
+    #
+    #with tf.Session() as session:
+    #
+    #    session.run(init)
+    #
+    #    for epoch in range(0, hparams.epochs):
+    #
+    #        for X, Y in get_train_data(hparams):
+    #            session.run(model.training, feed_dict={model.x: X, model.y: Y})
+    #
+    #        print("Epoch (%s) :: Accuracy: (%s)" % (epoch, session.run(model.accuracy)))
 
 
 if __name__ == '__main__':
@@ -31,8 +73,16 @@ if __name__ == '__main__':
         '--export-path',
         help='GCS or local paths to training data',
         default="./export/",
-        required=True
+        required=False,
     )
+
+    parser.add_argument(
+        '--epochs',
+        help='GCS or local paths to training data',
+        default=100,
+        required=False,
+    )
+
     # passed only in ML engine.
     parser.add_argument(
         '--job-dir',
@@ -40,24 +90,8 @@ if __name__ == '__main__':
         default="./job/",
         required=False
     )
-    parser.add_argument(
-        '--verbosity',
-        choices=[
-            'DEBUG',
-            'ERROR',
-            'FATAL',
-            'INFO',
-            'WARN'
-        ],
-        default='INFO',
-    )
 
     args = parser.parse_args()
-
-    # Set python level verbosity
-    tf.logging.set_verbosity(args.verbosity)
-    # Set C++ Graph Execution level verbosity
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = str(tf.logging.__dict__[args.verbosity] / 10)
 
     # Run the training job
     hparams = hparam.HParams(**args.__dict__)
