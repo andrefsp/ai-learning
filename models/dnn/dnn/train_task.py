@@ -13,7 +13,7 @@ from sklearn import preprocessing
 # export path to product the model files. (*.pb)
 
 
-def get_train_data(filename):
+def read_file_in_batches(filename, batch_size=100):
 
     dataframe = pd.read_csv(filename)
     labels = dataframe['label']
@@ -28,31 +28,32 @@ def get_train_data(filename):
 
     dataframe = dataframe.join(pd.DataFrame(one_n_labels), rsuffix='_label')
 
-    for line in dataframe.as_matrix():
-        Y = [line[-10:], ]
-        X = [line[:len(line) - 10], ]
+    dataset = dataframe.as_matrix()
+
+    for i in range(len(dataset)):
+
+        batch = dataset[i * batch_size:(i + 1) * batch_size]
+
+        if not len(batch):
+            break
+
+        Y = []
+        X = []
+
+        for line in batch:
+            Y.append(line[-10:])
+            X.append(line[:len(line) - 10])
+
         yield X, Y
 
 
 def get_eval_data(filename):
-    dataframe = pd.read_csv(filename)
-    labels = dataframe['label']
-
-    del dataframe['label']
-
-    dataframe = pd.DataFrame(
-        preprocessing.normalize(dataframe)
-    )
-
-    one_n_labels = np.eye(len(labels.unique()))[labels]
-
-    dataframe = dataframe.join(pd.DataFrame(one_n_labels), rsuffix='_label')
-
-    X = []
     Y = []
-    for line in dataframe.as_matrix():
-        Y.append(line[-10:])
-        X.append(line[:len(line) - 10])
+    X = []
+
+    for _x, _y in read_file_in_batches(filename, batch_size=1000):
+        X.extend(_x)
+        Y.extend(_y)
 
     return X, Y
 
@@ -72,7 +73,7 @@ def run_experiment(hparams):
 
         for epoch in range(0, hparams.epochs):
 
-            for X, Y in get_train_data(hparams.train_file):
+            for X, Y in read_file_in_batches(hparams.train_file):
                 session.run(
                     model.training,
                     feed_dict={model.x: X, model.y: Y},
@@ -81,6 +82,13 @@ def run_experiment(hparams):
             X, Y = get_eval_data(hparams.eval_file)
 
             print("Epoch(%s) Error: %s " % (epoch, session.run(model.error, feed_dict={model.x: X, model.y: Y})))
+
+        X, Y = get_eval_data(hparams.eval_file)
+
+        for i in range(10):
+            print("==================================")
+            print("::: %s" % Y[i])
+            print("::: %s" % session.run(model.logits, feed_dict={model.x: [X[i], ]}))
 
 
 if __name__ == '__main__':
@@ -110,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--epochs',
         help='GCS or local paths to training data',
-        default=100,
+        default=5,
         required=False,
     )
 

@@ -4,7 +4,6 @@ import tensorflow as tf
 class DNN(object):
 
     def __init__(self, n_inputs, n_outputs):
-
         self.n_inputs = n_inputs
         self.n_outputs = n_outputs
         self.n_hidden1 = 100
@@ -20,13 +19,7 @@ class DNN(object):
             self.hidden2 = tf.layers.dense(self.hidden1, self.n_hidden2, name="hidden2", activation=tf.nn.relu)
             self.logits = tf.layers.dense(self.hidden2, self.n_outputs, name="outputs")
 
-        # self.error = tf.reduce_mean(tf.metrics.mean_squared_error(self.y, self.logits))
-
-        self.error = tf.reduce_mean(tf.squared_difference(self.y, self.logits))
-
         # training
         with tf.name_scope("train"):
-            # self.xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits)
-            # self.loss = tf.reduce_mean(self.xentropy, name="loss")
-            # self.training = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
+            self.error = tf.reduce_mean(tf.squared_difference(self.y, self.logits))
             self.training = tf.train.AdamOptimizer(self.learning_rate).minimize(self.error)
