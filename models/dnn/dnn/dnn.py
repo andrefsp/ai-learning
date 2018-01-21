@@ -23,3 +23,5 @@ class DNN(object):
         with tf.name_scope("train"):
             self.error = tf.reduce_mean(tf.squared_difference(self.y, self.logits))
             self.training = tf.train.AdamOptimizer(self.learning_rate).minimize(self.error)
+
+        self.digit = tf.argmax(self.logits, 0, name='digit')

@@ -51,7 +51,7 @@ def get_eval_data(filename):
     Y = []
     X = []
 
-    for _x, _y in read_file_in_batches(filename, batch_size=1000):
+    for _x, _y in read_file_in_batches(filename, batch_size=100):
         X.extend(_x)
         Y.extend(_y)
 
@@ -68,6 +68,14 @@ def run_experiment(hparams):
     init = tf.global_variables_initializer()
 
     with tf.Session() as session:
+        tf.nn.in_top_k(
+            tf.constant([
+                [2.0, 9.0],
+                [7.0, 5.0],
+                [0.0, 0.0]]),
+            tf.constant([1, 0, 1]),
+            1
+        ).eval()
 
         session.run(init)
 
@@ -88,7 +96,9 @@ def run_experiment(hparams):
         for i in range(10):
             print("==================================")
             print("::: %s" % Y[i])
-            print("::: %s" % session.run(model.logits, feed_dict={model.x: [X[i], ]}))
+            result = session.run(model.logits, feed_dict={model.x: [X[i], ]})
+            print("::: %s" % result)
+            print("::: Digit: %s" % session.run(tf.argmax(result.reshape(10), 0)))
 
 
 if __name__ == '__main__':
