@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import argparse
@@ -95,6 +96,8 @@ def run_experiment(hparams):
 
         for i in range(10):
             print("==================================")
+            plt.imshow(np.array(X[i]).reshape([28, 28]))
+            plt.show()
             print("::: %s" % Y[i])
             result = session.run(model.logits, feed_dict={model.x: [X[i], ]})
             print("::: %s" % result)
